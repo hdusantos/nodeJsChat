@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Chat TR1</title>
+</head>
+<body>
+    <h2>TR1 Chat</h2>
+    <hr>
+    <script src="socket.io/socket.io.js"></script>
+    <script src="jquery.min.js" type="text/javascript"></script>
+    
+    <br><br>
+    sala:
+    <input type="text" id="room">
+    <br><br>
+    nickname:
+    <input type="text" id="nickname">
+    <br><br>
+    mensagem:
+    <input type="text" id="msgfield">
+    <br><br><br><br>
+    Info:
+    <div id="info" style="border: 1px solid darkgray"></div>
+    <br><br>
+    Mensagens:
+    <div id="messages" style="border: 1px solid darkgray"></div>
+
+    <script>
+        const socket = io();
+        socket.on("connect", () => {
+            socket.on("message", (message) => {
+                $("#messages").append(`${message}<br>`);
+            });
+
+            socket.on("info", (info) => {
+                $("#info").append(`${info}<br>`);
+            });
+            
+            // Ler os caracteres que estao sendo digitados na caixa de texto
+            // caso seja apertado o tab desabilita a caixa
+            $("#room").keydown((key) => {
+                if (key.keyCode === 9) {
+                    $("#room").prop("disabled", true)
+                }
+            });
+            
+            // Ler os caracteres que estao sendo digitados na caixa de texto
+            // caso seja apertado o tab o usuario eh adicionado a sala
+            $("#nickname").keydown((key) => {
+                if (key.keyCode === 9) {
+                    socket.emit("newUser", $("#nickname").val(), $("#room").val());
+                    $("#nickname").prop("disabled", true)
+                }
+            });
+
+            $("#msgfield").keydown((key) => {
+                if (key.keyCode === 13) {
+                    socket.emit("message", $("#msgfield").val());
+                    $("#msgfield").val("");
+                }
+            });
+        });
+    </script>
+
+</body>
+</html>
