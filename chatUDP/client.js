@@ -4,7 +4,18 @@ const client = dgram.createSocket("udp4");
 const host = "localhost";
 let portServer = 6001;
 
+const timeResponse = 500
+
 const dataSend = [];
+const checkResponseServer = () => {
+    if(dataSend.length !== 0) {
+        portServer += 1;
+        for (message of dataSend) {
+            client.send(message, portServer, host);
+        }
+        setTimeout(checkResponseServer, timeResponse);
+    }
+}
 
 client.bind({
     address: host
@@ -21,7 +32,6 @@ client.on("message", (msg, rinfo) => {
         process.stdout.write("> ");
     } else {
         dataSend.pop();
-        //console.log("dataSend confirm: ", dataSend);
     }
 });
 
@@ -36,6 +46,8 @@ const roomSend = Buffer.from(`${room}|Entrou na Sala`);
 client.send(roomSend, portServer, host, () => {
     process.stdout.write("> ");
 });
+dataSend.push(roomSend.toString());
+setTimeout(checkResponseServer, timeResponse);
 
 process.stdin.on("data", (data) => {
     let message = data.toString().replace(/\n|\n/g, "");
@@ -51,18 +63,6 @@ process.stdin.on("data", (data) => {
         process.stdout.write("> ");
         
         dataSend.push(message.toString());
-        //console.log("dataSend: ", dataSend);
-        setTimeout(checkResponseServer, 1000);
+        setTimeout(checkResponseServer, timeResponse);
     }
 });
-
-
-const checkResponseServer = () => {
-    if(dataSend.length !== 0) {        
-        //console.log("X, nao foi recebida");
-        portServer += 1;
-        for (message of dataSend) {
-            client.send(message, portServer, host);
-        }
-    }
-}
