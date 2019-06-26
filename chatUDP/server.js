@@ -134,7 +134,7 @@ const serverChat = () => {
 
     server.on("listening", () => {
         const address = server.address();
-        console.log(`Server listening ${address.address}:${address.port} - Worker ${process.pid} started`);
+        console.log(`Server listening ${address.address}:${address.port}`);
     });
 
     server.bind({
