@@ -9,36 +9,36 @@ let portServer = 6001;
 const serverList = [6001, 6002, 6003, 6004, 6005, 6006, 6007, 6008]
 
 const setPort = (port) => {
-    const checkPort = dgram.createSocket("udp4");
-
+    let checkPort = dgram.createSocket("udp4");
     checkPort.on("error", (err) => {
+        checkPort.close();
+
         if (err.code === "EADDRINUSE") {
             console.log(`Porta UDP ${port} em uso`);
             if(port >= 6008) {
                 console.log("Nao ha mais portas disponiveis - 8 servidores ja estao online");
-                checkPort.close();
                 setTimeout(process.exit, 500);
             }
             setPort(port + 1);
         } else {
             console.log(`server error:\n${err.code}`);
-            checkPort.close();
         }
     });
+
     checkPort.on("listening", () => {
         portServer = port;
         checkPort.close();
     });
+
     checkPort.bind({
         address: host,
         port: port
-    }, () => console.log("BIND =>"))
+    })
 }
 
 const runServer = async() => {
     setPort(6001);
-    await new Promise((done) => setTimeout(done, 2000));
-    console.log("portServer:", portServer);
+    await new Promise((done) => setTimeout(done, 1000));
     serverChat();
 }
 
@@ -143,13 +143,13 @@ const serverChat = () => {
     server.bind({
         address: host,
         port: portServer
-    })
+    });
+    
     const connectServer = () => {
         const message = Buffer.from(`server|newserver|${portServer}`);
         updateServers(message);
     }
-    console.log("connectServer");
-    connectServer();
+    connectServer();    
 }
 
 runServer();
