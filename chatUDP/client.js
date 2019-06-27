@@ -4,10 +4,12 @@ const client = dgram.createSocket("udp4");
 const host = "localhost";
 let portServer = 6001;
 
-const timeResponse = 500
+const timeResponse = 300
 
 const dataSend = [];
 const checkResponseServer = () => {
+    if(portServer === 6008)
+        portServer = 6000;
     if(dataSend.length !== 0) {
         portServer += 1;
         for (message of dataSend) {

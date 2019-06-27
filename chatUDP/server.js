@@ -1,7 +1,3 @@
-// Escalar aplicação
-const cluster = require("cluster");
-const numCPUs = require("os").cpus().length;
-
 // Uso do socket
 const dgram = require("dgram");
 const server = dgram.createSocket("udp4");
@@ -10,11 +6,19 @@ const server = dgram.createSocket("udp4");
 const host = "localhost";
 let portServer = 6001;
 
+const serverList = [6001, 6002, 6003, 6004, 6005, 6006, 6007, 6008]
+
 const setPort = (port) => {
     const checkPort = dgram.createSocket("udp4");
+
     checkPort.on("error", (err) => {
         if (err.code === "EADDRINUSE") {
             console.log(`Porta UDP ${port} em uso`);
+            if(port >= 6008) {
+                console.log("Nao ha mais portas disponiveis - 8 servidores ja estao online");
+                checkPort.close();
+                setTimeout(process.exit, 500);
+            }
             setPort(port + 1);
         } else {
             console.log(`server error:\n${err.code}`);
@@ -22,15 +26,13 @@ const setPort = (port) => {
         }
     });
     checkPort.on("listening", () => {
-        const address = checkPort.address();
-        console.log(`Server listening ${address.address}:${address.port}`);
         portServer = port;
         checkPort.close();
     });
     checkPort.bind({
         address: host,
         port: port
-    })
+    }, () => console.log("BIND =>"))
 }
 
 const runServer = async() => {
@@ -40,24 +42,29 @@ const runServer = async() => {
     serverChat();
 }
 
+const updateServers = (msg) => {
+    const message = Buffer.from(msg);
+    for (port of serverList) {
+        if(port != portServer) {
+            server.send(message, port, host);
+        }
+    }
+}
 
 const serverChat = () => {
+    process.on('SIGINT', () => {
+        console.log(" ~ Bye ~");
+        server.close();
+        setTimeout(process.exit, 500);
+    });
+
     // Estrutura para armazenar sala e usuarios contidos em cada sala
     let rooms = {}
-    // Estrutura para armazenar os n servidores
-    let servers = [];
 
     // Metodos para uso do socket
     server.on("error", (err) => {
-        if (err.code === "EADDRINUSE") {
-            console.log(`Porta UDP ${portServer} em uso`);
-            server.close();
-            serverChat(portServer+1);
-        } else {
-            console.log(`server error:\n${err.code}`);
-            server.close();
-        }
-
+        console.log(`Server error: ${err.code}`);
+        server.close();
     });
 
     server.on("message", (msg, rinfo) => {
@@ -73,27 +80,25 @@ const serverChat = () => {
                 const newRoom = `${msg.toString().split("|")[2]}`
                 const newUser = parseInt(`${msg.toString().split("|")[3]}`, 10);
                 if (!rooms[newRoom]) {
-                    rooms[newRoom] = [newUser];
+                    rooms[newRoom] = new Set([newUser]);
                 } else {
-                    rooms[newRoom].push(newUser);
+                    rooms[newRoom].add(newUser);
                 }
-                server.send(msg, portServer+1, host);
                 console.log(rooms);
             }
             else if (operation === "rmuser") {
                 const room = `${msg.toString().split("|")[2]}`
                 const user = parseInt(`${msg.toString().split("|")[3]}`, 10);
-
-                const index = rooms[room].indexOf(user);
-                rooms[room].splice(index, 1);
+                rooms[room].delete(user);
                 console.log(rooms);
-                server.send(msg, portServer+1, host);
             }
             else if (operation === "newserver") {
-                /* const newRoom = `${msg.toString().split("|")[2]}`
-                const newUser = parseInt(`${msg.toString().split("|")[3]}`, 10); */
-                servers.push(rinfo);
-                console.log(servers);
+                for (const room of Object.keys(rooms)) {
+                    for (const user of rooms[room]) {
+                        const message = Buffer.from(`server|newuser|${room}|${user}`);
+                        server.send(message, rinfo.port, host);
+                    }
+                }
             }
         }
         
@@ -103,16 +108,16 @@ const serverChat = () => {
             server.send(confirm, rinfo.port, rinfo.address);
 
             if(!rooms[roomSelect]) {
-                rooms[roomSelect] = [rinfo.port];
+                rooms[roomSelect] = new Set([rinfo.port]);
                 const message = Buffer.from(`server|newuser|${roomSelect}|${rinfo.port}`);
-                server.send(message, portServer+1, host);
+                updateServers(message);
                 console.log(rooms);
             } 
             else {
-                if (rooms[roomSelect].indexOf(rinfo.port) === -1) {
-                    rooms[roomSelect].push(rinfo.port);
+                if (!rooms[roomSelect].has(rinfo.port)) {
+                    rooms[roomSelect].add(rinfo.port);
                     const message = Buffer.from(`server|newuser|${roomSelect}|${rinfo.port}`);
-                    server.send(message, portServer+1, host);
+                    updateServers(message);
                     console.log(rooms);
                 }
                 for (const user of rooms[roomSelect]) {
@@ -123,10 +128,8 @@ const serverChat = () => {
 
             if(msg.toString().split("|")[1] === "--- Saiu da Sala ---") {
                 const message = Buffer.from(`server|rmuser|${roomSelect}|${rinfo.port}`);
-                server.send(message, portServer+1, host);
-
-                const index = rooms[roomSelect].indexOf(rinfo.port);
-                rooms[roomSelect].splice(index, 1);
+                updateServers(message);
+                rooms[roomSelect].delete(rinfo.port);
                 console.log(rooms);
             }
         }
@@ -142,12 +145,8 @@ const serverChat = () => {
         port: portServer
     })
     const connectServer = () => {
-        if (portServer !== 6001) {
-            for (let i = portServer-1; i >= 6001; i--) {
-                const message = Buffer.from(`server|newserver|${portServer}`);
-                server.send(message, i, host);
-            }
-        }
+        const message = Buffer.from(`server|newserver|${portServer}`);
+        updateServers(message);
     }
     console.log("connectServer");
     connectServer();
