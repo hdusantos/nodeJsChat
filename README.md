@@ -6,7 +6,7 @@
 
 * [Node.js](https://nodejs.org/)
 
-#### Executando o chat UDP
+#### Executando o chat UDP.
 
 Entre na pasta da aplicação em UDP
 
